@@ -1,9 +1,20 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageHeader, Field, EmptyState } from "@/components/head/primitives";
+import { Button } from "@/components/ui/button";
+import { PageHeader, Field, EmptyState, ConfirmAction } from "@/components/head/primitives";
 import { StatusBadge, Mono } from "@/components/head/status-badge";
 import { MonitorSmartphone } from "lucide-react";
-import { installationById, fmtDateTime, relTime, syncEvents } from "@/lib/head-data";
+import { fmtDateTime, relTime } from "@/lib/head-data";
+import { useSession } from "@/components/head/session";
+import {
+  useHeartbeats,
+  useInstallation,
+  useRevokeInstallation,
+  useSendHeartbeat,
+  useSyncEvents,
+} from "@/lib/head-db";
 
 export const Route = createFileRoute("/installations/$installationId")({
   head: () => ({
@@ -24,7 +35,25 @@ export const Route = createFileRoute("/installations/$installationId")({
 
 function InstallationDetail() {
   const { installationId } = Route.useParams();
-  const inst = installationById(installationId);
+  const session = useSession();
+  const { installation: inst, isLoading } = useInstallation(installationId);
+  const heartbeats = useHeartbeats(installationId);
+  const syncEvents = useSyncEvents();
+  const [revokeOpen, setRevokeOpen] = useState(false);
+
+  const actor = { name: session.name, role: session.roleLabel };
+  const revokeMutation = useRevokeInstallation(actor);
+  const heartbeatMutation = useSendHeartbeat(actor);
+
+  if (isLoading) {
+    return (
+      <EmptyState
+        icon={MonitorSmartphone}
+        title="Loading installation…"
+        description="Fetching live installation diagnostics."
+      />
+    );
+  }
 
   if (!inst) {
     return (
@@ -36,7 +65,30 @@ function InstallationDetail() {
     );
   }
 
-  const queue = syncEvents.filter((e) => e.installationId === inst.id).slice(0, 8);
+  const queue = syncEvents.data.filter((e) => e.installationId === inst.id).slice(0, 8);
+
+  const handleHeartbeat = () => {
+    void heartbeatMutation.mutateAsync(
+      { installation: inst, healthy: inst.dbReadable && inst.dbWritable && inst.localApiOk },
+      {
+        onSuccess: () => toast.success("Heartbeat sent", { description: `${inst.machineName} checked in.` }),
+        onError: (err) => toast.error("Failed to send heartbeat", { description: String(err) }),
+      },
+    );
+  };
+
+  const handleRevoke = (reason: string) => {
+    void revokeMutation.mutateAsync(
+      { installation: inst, reason },
+      {
+        onSuccess: () => {
+          toast.success("Token revoked", { description: `${inst.machineName} must re-register.` });
+          setRevokeOpen(false);
+        },
+        onError: (err) => toast.error("Failed to revoke token", { description: String(err) }),
+      },
+    );
+  };
 
   return (
     <>
@@ -50,7 +102,22 @@ function InstallationDetail() {
             </Link>
           </>
         }
-        actions={<StatusBadge status={inst.health} />}
+        actions={
+          <div className="flex items-center gap-2">
+            <StatusBadge status={inst.health} />
+            <Button variant="outline" size="sm" onClick={handleHeartbeat} disabled={heartbeatMutation.isPending}>
+              Send heartbeat
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={!session.can("installation.revoke") || inst.tokenState === "Revoked"}
+              onClick={() => setRevokeOpen(true)}
+            >
+              Revoke token
+            </Button>
+          </div>
+        }
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -99,6 +166,37 @@ function InstallationDetail() {
 
       <Card className="mt-4">
         <CardHeader>
+          <CardTitle>Heartbeat history (24h)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {heartbeats.isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading heartbeat history…</p>
+          ) : heartbeats.data.length === 0 ? (
+            <EmptyState
+              icon={MonitorSmartphone}
+              title="No heartbeats in the last 24 hours"
+              description="This installation has not checked in recently."
+            />
+          ) : (
+            <div className="max-h-64 space-y-1 overflow-y-auto">
+              {[...heartbeats.data].reverse().map((h) => (
+                <div key={h.at} className="flex items-center justify-between border-b pb-1 text-sm last:border-0">
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={h.healthy ? "Healthy" : "Critical"} />
+                    <Mono className="text-xs text-muted-foreground">{h.appVersion}</Mono>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    queue {h.syncQueue} · {fmtDateTime(h.at)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mt-4">
+        <CardHeader>
           <CardTitle>Recent sync events</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -120,6 +218,21 @@ function InstallationDetail() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmAction
+        open={revokeOpen}
+        onOpenChange={setRevokeOpen}
+        title={`Revoke token for ${inst.machineName}`}
+        target={[
+          { label: "Installation ID", value: inst.id },
+          { label: "Cafe", value: inst.cafeName },
+        ]}
+        effects={["The installation's license token is revoked immediately.", "The machine must re-register with a new code to sync again."]}
+        recovery="A new registration code can be issued from the cafe's installation list."
+        actionLabel="Revoke token"
+        destructive
+        onConfirm={handleRevoke}
+      />
     </>
   );
 }

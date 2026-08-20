@@ -5,7 +5,8 @@ import { DataTable, type Column } from "@/components/head/data-table";
 import { PageHeader, EmptyState } from "@/components/head/primitives";
 import { StatusBadge, Mono } from "@/components/head/status-badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { installations, relTime, type Installation } from "@/lib/head-data";
+import { relTime, type Installation } from "@/lib/head-data";
+import { usePlatform } from "@/lib/head-db";
 
 export const Route = createFileRoute("/installations/")({
   head: () => ({
@@ -30,10 +31,11 @@ export const Route = createFileRoute("/installations/")({
 
 function InstallationsPage() {
   const navigate = useNavigate();
+  const { data, isLoading } = usePlatform();
   const [health, setHealth] = useState("all");
   const [ring, setRing] = useState("all");
 
-  const rows = installations.filter(
+  const rows = data.installations.filter(
     (i) => (health === "all" || i.health === health) && (ring === "all" || i.ring === ring),
   );
 
@@ -71,7 +73,7 @@ function InstallationsPage() {
       key: "hb",
       header: "Heartbeat",
       render: (i) => <span className="text-muted-foreground">{relTime(i.lastHeartbeat)}</span>,
-      sort: (i) => i.lastHeartbeat,
+      sort: (i) => i.lastHeartbeat ?? 0,
     },
     { key: "os", header: "OS", render: (i) => i.os, sort: (i) => i.os, defaultHidden: true },
   ];
@@ -86,6 +88,7 @@ function InstallationsPage() {
         rows={rows}
         columns={columns}
         rowKey={(i) => i.id}
+        loading={isLoading}
         search={(i) => `${i.machineName} ${i.cafeName} ${i.id} ${i.appVersion} ${i.os}`}
         searchPlaceholder="Search machine, cafe or version…"
         exportName="airavoto-installations"

@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader, Hint, PermissionDenied } from "@/components/head/primitives";
 import { useSession } from "@/components/head/session";
+import { useCreateCafe, useSlugAvailable, type Actor } from "@/lib/head-db";
+import { PLANS, slugify, type Plan } from "@/lib/head-data";
 
 export const Route = createFileRoute("/cafes/new")({
   head: () => ({
@@ -29,17 +31,28 @@ export const Route = createFileRoute("/cafes/new")({
 function NewCafe() {
   const session = useSession();
   const navigate = useNavigate();
+  const actor: Actor = { name: session.name, role: session.roleLabel };
+  const createCafe = useCreateCafe(actor);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [owner, setOwner] = useState("");
   const [email, setEmail] = useState("");
   const [city, setCity] = useState("");
-  const [plan, setPlan] = useState("Growth");
+  const [plan, setPlan] = useState<Plan>("Growth");
+
+  const slugValue = slug || slugify(name);
+  const slugCheck = useSlugAvailable(slugValue);
 
   if (!session.can("cafe.create")) return <PermissionDenied what="onboard new cafes" />;
 
-  const slugValue = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  const ready = name.trim().length > 2 && slugValue.length > 2 && owner.trim() && email.includes("@");
+  const slugValid = slugValue.length > 2 && (slugCheck.data === undefined || slugCheck.data === true);
+  const ready =
+    name.trim().length > 2 &&
+    slugValid &&
+    !slugCheck.isFetching &&
+    owner.trim().length > 0 &&
+    email.includes("@") &&
+    !createCafe.isPending;
 
   return (
     <>
@@ -61,6 +74,9 @@ function NewCafe() {
             <div className="space-y-1.5">
               <Label htmlFor="slug">Public slug</Label>
               <Input id="slug" value={slugValue} onChange={(e) => setSlug(e.target.value)} placeholder="brew-and-byte" />
+              {slugValue.length > 2 && slugCheck.data === false && (
+                <p className="text-xs text-danger">This slug is already taken.</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="owner">Owner name</Label>
@@ -76,12 +92,12 @@ function NewCafe() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="plan">Plan</Label>
-              <Select value={plan} onValueChange={setPlan}>
+              <Select value={plan} onValueChange={(v) => setPlan(v as Plan)}>
                 <SelectTrigger id="plan">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {["Starter", "Growth", "Pro", "Enterprise"].map((p) => (
+                  {PLANS.map((p) => (
                     <SelectItem key={p} value={p}>
                       {p}
                     </SelectItem>
@@ -96,11 +112,39 @@ function NewCafe() {
           <div className="flex gap-2">
             <Button
               disabled={!ready}
-              onClick={() => {
-                toast.success(`Cafe ${name} created`, {
-                  description: "Trial license issued. An onboarding invite was emailed to the owner.",
-                });
-                navigate({ to: "/cafes" });
+              onClick={async () => {
+                try {
+                  const result = await createCafe.mutateAsync({
+                    name,
+                    legalName: "",
+                    slug: slugValue,
+                    address: "",
+                    city,
+                    state: "",
+                    timezone: "Asia/Kolkata",
+                    currency: "INR",
+                    ownerName: owner,
+                    ownerEmail: email,
+                    ownerPhone: "",
+                    plan,
+                    seatLimit: 4,
+                    installationLimit: 1,
+                    gracePeriodDays: 7,
+                    features: [],
+                    description: "",
+                    amenities: [],
+                    bookingEnabled: true,
+                    machineName: "",
+                  });
+                  toast.success(`Cafe ${name} created`, {
+                    description: `Trial license issued. Registration code: ${result.code}`,
+                  });
+                  navigate({ to: "/cafes/$cafeId", params: { cafeId: result.cafeId } });
+                } catch (err) {
+                  toast.error("Could not create cafe", {
+                    description: err instanceof Error ? err.message : String(err),
+                  });
+                }
               }}
             >
               Create cafe and issue trial license
