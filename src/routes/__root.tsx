@@ -11,6 +11,11 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { AppShell } from "@/components/head/app-shell";
+import { SessionProvider } from "@/components/head/session";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
+
 
 function NotFoundComponent() {
   return (
@@ -77,14 +82,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "AiravotoHead — Airavoto POS Control Plane" },
+      {
+        name: "description",
+        content:
+          "Operations console for onboarding cafes, registering Airavoto POS installations, and monitoring licenses and health.",
+      },
+      { property: "og:title", content: "AiravotoHead — Airavoto POS Control Plane" },
+      {
+        property: "og:description",
+        content:
+          "Operations console for onboarding cafes, registering Airavoto POS installations, and monitoring licenses and health.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {
@@ -94,6 +105,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
+
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
@@ -119,8 +131,16 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <SessionProvider>
+        <TooltipProvider delayDuration={200}>
+          <AppShell>
+            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+            <Outlet />
+          </AppShell>
+          <Toaster richColors position="top-right" />
+        </TooltipProvider>
+      </SessionProvider>
     </QueryClientProvider>
   );
 }
+

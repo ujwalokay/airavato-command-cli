@@ -10,33 +10,194 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuditRouteImport } from './routes/audit'
+import { Route as DiagnosticsRouteImport } from './routes/diagnostics'
+import { Route as HealthRouteImport } from './routes/health'
+import { Route as LicensesRouteImport } from './routes/licenses'
+import { Route as ReleasesRouteImport } from './routes/releases'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SyncRouteImport } from './routes/sync'
+import { Route as CafesIndexRouteImport } from './routes/cafes.index'
+import { Route as CafesCafeIdRouteImport } from './routes/cafes.$cafeId'
+import { Route as CafesNewRouteImport } from './routes/cafes.new'
+import { Route as InstallationsIndexRouteImport } from './routes/installations.index'
+import { Route as InstallationsInstallationIdRouteImport } from './routes/installations.$installationId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuditRoute = AuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiagnosticsRoute = DiagnosticsRouteImport.update({
+  id: '/diagnostics',
+  path: '/diagnostics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HealthRoute = HealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LicensesRoute = LicensesRouteImport.update({
+  id: '/licenses',
+  path: '/licenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReleasesRoute = ReleasesRouteImport.update({
+  id: '/releases',
+  path: '/releases',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SyncRoute = SyncRouteImport.update({
+  id: '/sync',
+  path: '/sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CafesIndexRoute = CafesIndexRouteImport.update({
+  id: '/cafes/',
+  path: '/cafes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CafesCafeIdRoute = CafesCafeIdRouteImport.update({
+  id: '/cafes/$cafeId',
+  path: '/cafes/$cafeId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CafesNewRoute = CafesNewRouteImport.update({
+  id: '/cafes/new',
+  path: '/cafes/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InstallationsIndexRoute = InstallationsIndexRouteImport.update({
+  id: '/installations/',
+  path: '/installations/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InstallationsInstallationIdRoute =
+  InstallationsInstallationIdRouteImport.update({
+    id: '/installations/$installationId',
+    path: '/installations/$installationId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/audit': typeof AuditRoute
+  '/diagnostics': typeof DiagnosticsRoute
+  '/health': typeof HealthRoute
+  '/licenses': typeof LicensesRoute
+  '/releases': typeof ReleasesRoute
+  '/settings': typeof SettingsRoute
+  '/sync': typeof SyncRoute
+  '/cafes/$cafeId': typeof CafesCafeIdRoute
+  '/cafes/new': typeof CafesNewRoute
+  '/installations/$installationId': typeof InstallationsInstallationIdRoute
+  '/cafes/': typeof CafesIndexRoute
+  '/installations/': typeof InstallationsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/audit': typeof AuditRoute
+  '/diagnostics': typeof DiagnosticsRoute
+  '/health': typeof HealthRoute
+  '/licenses': typeof LicensesRoute
+  '/releases': typeof ReleasesRoute
+  '/settings': typeof SettingsRoute
+  '/sync': typeof SyncRoute
+  '/cafes/$cafeId': typeof CafesCafeIdRoute
+  '/cafes/new': typeof CafesNewRoute
+  '/installations/$installationId': typeof InstallationsInstallationIdRoute
+  '/cafes': typeof CafesIndexRoute
+  '/installations': typeof InstallationsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/audit': typeof AuditRoute
+  '/diagnostics': typeof DiagnosticsRoute
+  '/health': typeof HealthRoute
+  '/licenses': typeof LicensesRoute
+  '/releases': typeof ReleasesRoute
+  '/settings': typeof SettingsRoute
+  '/sync': typeof SyncRoute
+  '/cafes/$cafeId': typeof CafesCafeIdRoute
+  '/cafes/new': typeof CafesNewRoute
+  '/installations/$installationId': typeof InstallationsInstallationIdRoute
+  '/cafes/': typeof CafesIndexRoute
+  '/installations/': typeof InstallationsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/audit'
+    | '/diagnostics'
+    | '/health'
+    | '/licenses'
+    | '/releases'
+    | '/settings'
+    | '/sync'
+    | '/cafes/$cafeId'
+    | '/cafes/new'
+    | '/installations/$installationId'
+    | '/cafes/'
+    | '/installations/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/audit'
+    | '/diagnostics'
+    | '/health'
+    | '/licenses'
+    | '/releases'
+    | '/settings'
+    | '/sync'
+    | '/cafes/$cafeId'
+    | '/cafes/new'
+    | '/installations/$installationId'
+    | '/cafes'
+    | '/installations'
+  id:
+    | '__root__'
+    | '/'
+    | '/audit'
+    | '/diagnostics'
+    | '/health'
+    | '/licenses'
+    | '/releases'
+    | '/settings'
+    | '/sync'
+    | '/cafes/$cafeId'
+    | '/cafes/new'
+    | '/installations/$installationId'
+    | '/cafes/'
+    | '/installations/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuditRoute: typeof AuditRoute
+  DiagnosticsRoute: typeof DiagnosticsRoute
+  HealthRoute: typeof HealthRoute
+  LicensesRoute: typeof LicensesRoute
+  ReleasesRoute: typeof ReleasesRoute
+  SettingsRoute: typeof SettingsRoute
+  SyncRoute: typeof SyncRoute
+  CafesCafeIdRoute: typeof CafesCafeIdRoute
+  CafesNewRoute: typeof CafesNewRoute
+  InstallationsInstallationIdRoute: typeof InstallationsInstallationIdRoute
+  CafesIndexRoute: typeof CafesIndexRoute
+  InstallationsIndexRoute: typeof InstallationsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +209,107 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/audit': {
+      id: '/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/diagnostics': {
+      id: '/diagnostics'
+      path: '/diagnostics'
+      fullPath: '/diagnostics'
+      preLoaderRoute: typeof DiagnosticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/health': {
+      id: '/health'
+      path: '/health'
+      fullPath: '/health'
+      preLoaderRoute: typeof HealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/licenses': {
+      id: '/licenses'
+      path: '/licenses'
+      fullPath: '/licenses'
+      preLoaderRoute: typeof LicensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/releases': {
+      id: '/releases'
+      path: '/releases'
+      fullPath: '/releases'
+      preLoaderRoute: typeof ReleasesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sync': {
+      id: '/sync'
+      path: '/sync'
+      fullPath: '/sync'
+      preLoaderRoute: typeof SyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cafes/': {
+      id: '/cafes/'
+      path: '/cafes'
+      fullPath: '/cafes/'
+      preLoaderRoute: typeof CafesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cafes/$cafeId': {
+      id: '/cafes/$cafeId'
+      path: '/cafes/$cafeId'
+      fullPath: '/cafes/$cafeId'
+      preLoaderRoute: typeof CafesCafeIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cafes/new': {
+      id: '/cafes/new'
+      path: '/cafes/new'
+      fullPath: '/cafes/new'
+      preLoaderRoute: typeof CafesNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/installations/': {
+      id: '/installations/'
+      path: '/installations'
+      fullPath: '/installations/'
+      preLoaderRoute: typeof InstallationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/installations/$installationId': {
+      id: '/installations/$installationId'
+      path: '/installations/$installationId'
+      fullPath: '/installations/$installationId'
+      preLoaderRoute: typeof InstallationsInstallationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuditRoute: AuditRoute,
+  DiagnosticsRoute: DiagnosticsRoute,
+  HealthRoute: HealthRoute,
+  LicensesRoute: LicensesRoute,
+  ReleasesRoute: ReleasesRoute,
+  SettingsRoute: SettingsRoute,
+  SyncRoute: SyncRoute,
+  CafesCafeIdRoute: CafesCafeIdRoute,
+  CafesNewRoute: CafesNewRoute,
+  InstallationsInstallationIdRoute: InstallationsInstallationIdRoute,
+  CafesIndexRoute: CafesIndexRoute,
+  InstallationsIndexRoute: InstallationsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
