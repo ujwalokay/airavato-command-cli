@@ -3,12 +3,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/head/data-table";
-import { PageHeader, EmptyState, KpiCard } from "@/components/head/primitives";
+import { PageHeader, EmptyState, KpiCard, ConfirmAction } from "@/components/head/primitives";
 import { StatusBadge, Mono } from "@/components/head/status-badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSession } from "@/components/head/session";
-import { fmtDate, licenses, relTime, type License } from "@/lib/head-data";
+import { fmtDate, relTime, type License } from "@/lib/head-data";
+import { useLicenseAction, usePlatform } from "@/lib/head-db";
 
 export const Route = createFileRoute("/licenses")({
   head: () => ({
@@ -27,10 +28,55 @@ export const Route = createFileRoute("/licenses")({
   component: LicensesPage,
 });
 
+type PendingAction = { license: License; kind: "suspend" | "reactivate" | "rotate" };
+
 function LicensesPage() {
   const session = useSession();
+  const { data, isLoading } = usePlatform();
   const [state, setState] = useState("all");
+  const [pending, setPending] = useState<PendingAction | null>(null);
+
+  const actor = { name: session.name, role: session.roleLabel };
+  const licenseAction = useLicenseAction(actor);
+
+  const licenses = data.licenses;
   const rows = licenses.filter((l) => state === "all" || l.state === state);
+
+  const runAction = (reason: string) => {
+    if (!pending) return;
+    const { license, kind } = pending;
+    void licenseAction.mutateAsync(
+      {
+        kind,
+        input: {
+          cafe: { id: license.cafeId, name: license.cafeName },
+          licenseId: license.id,
+          reason,
+          previousState: license.state,
+          tokenVersion: license.tokenVersion,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success(
+            kind === "suspend"
+              ? `License suspended for ${license.cafeName}`
+              : kind === "reactivate"
+                ? `License reactivated for ${license.cafeName}`
+                : `Token rotated for ${license.cafeName}`,
+            {
+              description:
+                kind === "rotate"
+                  ? `New token v${license.tokenVersion + 1} will be picked up on the next heartbeat.`
+                  : undefined,
+            },
+          );
+          setPending(null);
+        },
+        onError: (err) => toast.error("Action failed", { description: String(err) }),
+      },
+    );
+  };
 
   const columns: Column<License>[] = [
     {
@@ -46,15 +92,15 @@ function LicensesPage() {
     },
     { key: "plan", header: "Plan", render: (l) => l.plan, sort: (l) => l.plan },
     { key: "state", header: "State", render: (l) => <StatusBadge status={l.state} />, sort: (l) => l.state },
-    { key: "renewal", header: "Renewal", render: (l) => fmtDate(l.renewalDate), sort: (l) => l.renewalDate },
-    { key: "grace", header: "Grace ends", render: (l) => fmtDate(l.graceEnds), sort: (l) => l.graceEnds, defaultHidden: true },
+    { key: "renewal", header: "Renewal", render: (l) => fmtDate(l.renewalDate), sort: (l) => l.renewalDate ?? 0 },
+    { key: "grace", header: "Grace ends", render: (l) => fmtDate(l.graceEnds), sort: (l) => l.graceEnds ?? 0, defaultHidden: true },
     { key: "limits", header: "Limits", render: (l) => `${l.installationLimit} inst · ${l.deviceLimit} dev` },
     { key: "token", header: "Token", render: (l) => <Mono>v{l.tokenVersion}</Mono>, sort: (l) => l.tokenVersion },
     {
       key: "validated",
       header: "Last validation",
       render: (l) => <span className="text-muted-foreground">{relTime(l.lastValidation)}</span>,
-      sort: (l) => l.lastValidation,
+      sort: (l) => l.lastValidation ?? 0,
     },
     {
       key: "reason",
@@ -66,18 +112,35 @@ function LicensesPage() {
       key: "actions",
       header: "",
       render: (l) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={!session.can("license.rotate")}
-          onClick={() =>
-            toast.success(`Token rotated for ${l.cafeName}`, {
-              description: `New token v${l.tokenVersion + 1} will be picked up on the next heartbeat.`,
-            })
-          }
-        >
-          Rotate token
-        </Button>
+        <div className="flex items-center gap-1">
+          {(l.state === "Suspended" || l.state === "Revoked") ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!session.can("license.reactivate")}
+              onClick={() => setPending({ license: l, kind: "reactivate" })}
+            >
+              Reactivate
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!session.can("license.suspend")}
+              onClick={() => setPending({ license: l, kind: "suspend" })}
+            >
+              Suspend
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={!session.can("license.rotate")}
+            onClick={() => setPending({ license: l, kind: "rotate" })}
+          >
+            Rotate token
+          </Button>
+        </div>
       ),
     },
   ];
@@ -105,6 +168,7 @@ function LicensesPage() {
         rows={rows}
         columns={columns}
         rowKey={(l) => l.id}
+        loading={isLoading}
         search={(l) => `${l.id} ${l.cafeName} ${l.plan} ${l.state}`}
         searchPlaceholder="Search by license, cafe or plan…"
         exportName="airavoto-licenses"
@@ -123,6 +187,39 @@ function LicensesPage() {
           </Select>
         }
         empty={<EmptyState icon={ShieldCheck} title="No licenses match" description="Adjust the state filter." />}
+      />
+
+      <ConfirmAction
+        open={!!pending}
+        onOpenChange={(o) => !o && setPending(null)}
+        title={
+          pending?.kind === "suspend"
+            ? `Suspend license for ${pending.license.cafeName}`
+            : pending?.kind === "reactivate"
+              ? `Reactivate license for ${pending.license.cafeName}`
+              : `Rotate token for ${pending?.license.cafeName ?? ""}`
+        }
+        target={
+          pending
+            ? [
+                { label: "License ID", value: pending.license.id },
+                { label: "Cafe", value: pending.license.cafeName },
+              ]
+            : []
+        }
+        effects={
+          pending?.kind === "suspend"
+            ? ["Cloud features pause immediately.", "All installations for this cafe have their tokens revoked."]
+            : pending?.kind === "reactivate"
+              ? ["License state returns to Active.", "A fresh token is issued to all installations."]
+              : ["Token version is incremented.", "Installations pick up the new token on next heartbeat."]
+        }
+        recovery="This action is reversible from the licenses page and is recorded in the audit log."
+        actionLabel={
+          pending?.kind === "suspend" ? "Suspend license" : pending?.kind === "reactivate" ? "Reactivate license" : "Rotate token"
+        }
+        destructive={pending?.kind === "suspend"}
+        onConfirm={runAction}
       />
     </>
   );
