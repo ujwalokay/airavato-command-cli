@@ -5,17 +5,8 @@ import { Progress } from "@/components/ui/progress";
 import { PageHeader, KpiCard, EmptyState } from "@/components/head/primitives";
 import { DataTable, type Column } from "@/components/head/data-table";
 import { StatusBadge, Mono } from "@/components/head/status-badge";
-import {
-  auditLogs,
-  cafes,
-  healthTimeline,
-  incidents,
-  installations,
-  kpis,
-  relTime,
-  RINGS,
-  type Cafe,
-} from "@/lib/head-data";
+import { relTime, RINGS, type Cafe } from "@/lib/head-data";
+import { useAuditLogs, useHealthTimeline, useIncidents, useKpis, usePlatform } from "@/lib/head-db";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -38,7 +29,13 @@ export const Route = createFileRoute("/")({
 
 function Overview() {
   const navigate = useNavigate();
-  const k = kpis();
+  const { kpis: k } = useKpis();
+  const { data: platform, isLoading: platformLoading } = usePlatform();
+  const { data: timeline } = useHealthTimeline();
+  const { data: incidents, isLoading: incidentsLoading } = useIncidents();
+  const { data: auditLogs, isLoading: auditLoading } = useAuditLogs();
+
+  const { cafes, installations } = platform;
 
   const columns: Column<Cafe>[] = [
     {
@@ -75,7 +72,7 @@ function Overview() {
     {
       key: "hb",
       header: "Last heartbeat",
-      sort: (c) => c.lastHeartbeat,
+      sort: (c) => c.lastHeartbeat ?? 0,
       render: (c) => <span className="text-muted-foreground">{relTime(c.lastHeartbeat)}</span>,
     },
     {
@@ -95,7 +92,7 @@ function Overview() {
     <>
       <PageHeader
         title="Platform overview"
-        description="Operational state of 100 locally installed Airavoto POS systems and their connected AiravotoCafe pages. No customer personal data is shown here."
+        description="Operational state of every locally installed Airavoto POS system and its connected AiravotoCafe page. No customer personal data is shown here."
       />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -109,7 +106,7 @@ function Overview() {
           hint="No heartbeat > 48h"
         />
         <KpiCard label="Connected installations" value={k.connected} tone="ok" to="/installations" hint="Heartbeat < 3h" />
-        <KpiCard label="Needs update" value={k.needUpdate} tone="warn" to="/releases" hint="Not on 3.4.2" />
+        <KpiCard label="Needs update" value={k.needUpdate} tone="warn" to="/releases" hint="Not on latest version" />
         <KpiCard label="Suspended licenses" value={k.suspended} tone="danger" to="/licenses" hint="Suspended or revoked" />
         <KpiCard label="Failed sync queues" value={k.failedSync} tone="warn" to="/sync" hint="Failed or conflicted events" />
         <KpiCard
@@ -127,7 +124,7 @@ function Overview() {
         </CardHeader>
         <CardContent className="h-64 pl-0">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={healthTimeline} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
+            <AreaChart data={timeline} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
               <XAxis dataKey="hour" tick={{ fontSize: 11 }} stroke="var(--color-muted-foreground)" />
               <YAxis tick={{ fontSize: 11 }} stroke="var(--color-muted-foreground)" width={36} />
@@ -179,7 +176,13 @@ function Overview() {
           searchPlaceholder="Search cafes by name, slug or city…"
           exportName="cafe-status"
           onRowClick={(c) => navigate({ to: "/cafes/$cafeId", params: { cafeId: c.id } })}
-          empty={<EmptyState title="No cafes yet" description="Onboard your first cafe to start receiving heartbeats." />}
+          empty={
+            platformLoading ? (
+              <EmptyState title="Loading cafes…" description="Fetching the latest platform data." />
+            ) : (
+              <EmptyState title="No cafes yet" description="Onboard your first cafe to start receiving heartbeats." />
+            )
+          }
         />
       </section>
 
@@ -189,23 +192,29 @@ function Overview() {
             <CardTitle className="text-sm">Recent incidents</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {incidents.slice(0, 6).map((i) => (
-              <Link
-                key={i.id}
-                to="/installations/$installationId"
-                params={{ installationId: i.installationId }}
-                className="flex items-start justify-between gap-3 rounded-md border p-2.5 hover:bg-accent/40"
-              >
-                <span className="space-y-0.5">
-                  <span className="block text-sm font-medium">{i.kind}</span>
-                  <span className="block text-xs text-muted-foreground">{i.summary}</span>
-                  <Mono className="block">
-                    {i.cafeName} · {i.installationId}
-                  </Mono>
-                </span>
-                <StatusBadge status={i.severity} />
-              </Link>
-            ))}
+            {incidentsLoading ? (
+              <EmptyState title="Loading incidents…" description="Fetching the latest support incidents." />
+            ) : incidents.length === 0 ? (
+              <EmptyState title="No incidents" description="Nothing has been reported by support agents yet." />
+            ) : (
+              incidents.slice(0, 6).map((i) => (
+                <Link
+                  key={i.id}
+                  to="/installations/$installationId"
+                  params={{ installationId: i.installationId ?? "" }}
+                  className="flex items-start justify-between gap-3 rounded-md border p-2.5 hover:bg-accent/40"
+                >
+                  <span className="space-y-0.5">
+                    <span className="block text-sm font-medium">{i.kind}</span>
+                    <span className="block text-xs text-muted-foreground">{i.summary}</span>
+                    <Mono className="block">
+                      {i.cafeName} · {i.installationId}
+                    </Mono>
+                  </span>
+                  <StatusBadge status={i.severity} />
+                </Link>
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -214,17 +223,21 @@ function Overview() {
             <CardTitle className="text-sm">Rollout progress by ring</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {ringCounts.map((r) => (
-              <div key={r.ring} className="space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span>{r.ring}</span>
-                  <span className="tabular-nums text-muted-foreground">
-                    {r.count} installations
-                  </span>
+            {installations.length === 0 ? (
+              <EmptyState title="No installations" description="Register an installation to see rollout progress." />
+            ) : (
+              ringCounts.map((r) => (
+                <div key={r.ring} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>{r.ring}</span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {r.count} installations
+                    </span>
+                  </div>
+                  <Progress value={(r.count / installations.length) * 100} className="h-1.5" />
                 </div>
-                <Progress value={(r.count / installations.length) * 100} className="h-1.5" />
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
@@ -234,19 +247,25 @@ function Overview() {
           <CardTitle className="text-sm">Recent platform activity</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="divide-y text-sm">
-            {auditLogs.slice(0, 8).map((a) => (
-              <li key={a.id} className="flex flex-wrap items-center gap-2 py-2">
-                <Mono>{a.action}</Mono>
-                <span className="text-muted-foreground">by {a.actor}</span>
-                <span className="text-muted-foreground">· {a.cafeName}</span>
-                <span className="ml-auto flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">{relTime(a.at)}</span>
-                  <StatusBadge status={a.result} />
-                </span>
-              </li>
-            ))}
-          </ul>
+          {auditLoading ? (
+            <EmptyState title="Loading activity…" description="Fetching the latest audit records." />
+          ) : auditLogs.length === 0 ? (
+            <EmptyState title="No activity yet" description="Actions taken across the platform will appear here." />
+          ) : (
+            <ul className="divide-y text-sm">
+              {auditLogs.slice(0, 8).map((a) => (
+                <li key={a.id} className="flex flex-wrap items-center gap-2 py-2">
+                  <Mono>{a.action}</Mono>
+                  <span className="text-muted-foreground">by {a.actor}</span>
+                  <span className="text-muted-foreground">· {a.cafeName}</span>
+                  <span className="ml-auto flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">{relTime(a.at)}</span>
+                    <StatusBadge status={a.result} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
           <Link to="/audit" className="mt-3 inline-block text-sm text-primary hover:underline">
             View all audit records →
           </Link>

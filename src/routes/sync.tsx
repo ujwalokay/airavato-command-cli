@@ -8,7 +8,8 @@ import { StatusBadge, Mono } from "@/components/head/status-badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSession } from "@/components/head/session";
-import { relTime, syncEvents, type SyncEvent } from "@/lib/head-data";
+import { useSyncEvents, useSyncAction } from "@/lib/head-db";
+import { relTime, type SyncEvent } from "@/lib/head-data";
 
 export const Route = createFileRoute("/sync")({
   head: () => ({
@@ -30,7 +31,25 @@ export const Route = createFileRoute("/sync")({
 function SyncPage() {
   const session = useSession();
   const [state, setState] = useState("all");
+  const { data: syncEvents, isLoading } = useSyncEvents();
+  const syncAction = useSyncAction({ name: session.name, role: session.roleLabel });
   const rows = syncEvents.filter((e) => state === "all" || e.state === state);
+
+  const act = async (event: SyncEvent, kind: "retry" | "ignore" | "resolve", reason: string) => {
+    try {
+      await syncAction.mutateAsync({ event, kind, reason });
+      toast.success(
+        kind === "retry"
+          ? `Retry queued for ${event.id}`
+          : kind === "ignore"
+            ? `Event ${event.id} ignored`
+            : `Event ${event.id} marked resolved`,
+        { description: "The local service will replay this event on its next poll." },
+      );
+    } catch (err) {
+      toast.error("Action failed", { description: err instanceof Error ? err.message : String(err) });
+    }
+  };
 
   const columns: Column<SyncEvent>[] = [
     {
@@ -65,14 +84,32 @@ function SyncPage() {
       key: "actions",
       header: "",
       render: (e) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={!session.can("sync.retry") || e.state === "Acknowledged"}
-          onClick={() => toast.success(`Retry queued for ${e.id}`, { description: "The local service will replay this event on its next poll." })}
-        >
-          Retry
-        </Button>
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={!session.can("sync.retry") || e.state === "Acknowledged"}
+            onClick={() => void act(e, "retry", "Manual retry requested from sync console")}
+          >
+            Retry
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={!session.can("sync.resolve") || e.state === "Acknowledged"}
+            onClick={() => void act(e, "ignore", "Event ignored from sync console")}
+          >
+            Ignore
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={!session.can("sync.resolve") || e.state === "Acknowledged"}
+            onClick={() => void act(e, "resolve", "Manually resolved from sync console")}
+          >
+            Resolve
+          </Button>
+        </div>
       ),
     },
   ];
@@ -105,6 +142,7 @@ function SyncPage() {
         search={(e) => `${e.id} ${e.cafeName} ${e.entity} ${e.state} ${e.lastError ?? ""}`}
         searchPlaceholder="Search by event, cafe, entity or error…"
         exportName="airavoto-sync-events"
+        loading={isLoading}
         filters={
           <Select value={state} onValueChange={setState}>
             <SelectTrigger className="h-9 w-48" aria-label="Filter by sync state">

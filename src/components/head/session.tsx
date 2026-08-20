@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { ROLES, cafes, can, type Permission, type Role } from "@/lib/head-data";
+import { ROLES, can, type Permission, type Role } from "@/lib/head-data";
 
 type Session = {
   role: Role;
@@ -18,7 +18,7 @@ const NAMES: Record<Role, string> = {
   platform_owner: "Arjun Kulkarni",
   operations_manager: "Priya Deshmukh",
   support_agent: "Dan Fernandes",
-  cafe_owner: cafes[0]?.owner ?? "Cafe Owner",
+  cafe_owner: "Cafe Owner",
   auditor: "Ravi Balan",
 };
 
@@ -35,7 +35,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     role,
     roleLabel: ROLES.find((r) => r.id === role)!.label,
     name: NAMES[role],
-    scopedCafeId: role === "cafe_owner" ? (cafes[0]?.id ?? null) : null,
+    // Cafe-owner scoping is resolved by the pages themselves against live data;
+    // there is no single "my cafe" record to hardcode here anymore.
+    scopedCafeId: null,
     setRole,
     can: (p) => can(role, p),
     theme,
