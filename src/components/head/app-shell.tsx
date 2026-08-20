@@ -35,7 +35,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { StatusBadge } from "@/components/head/status-badge";
 import { useSession } from "@/components/head/session";
-import { ROLES, incidents, relTime } from "@/lib/head-data";
+import { ROLES, relTime } from "@/lib/head-data";
+import { useIncidents } from "@/lib/head-db";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -96,6 +97,7 @@ function Brand() {
 export function AppShell({ children }: { children: ReactNode }) {
   const session = useSession();
   const [drawer, setDrawer] = useState(false);
+  const { data: incidents, isLoading: incidentsLoading } = useIncidents();
   const open = incidents.filter((i) => i.status !== "Resolved").slice(0, 6);
 
   return (
@@ -146,19 +148,29 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <div className="border-b px-3 py-2 text-sm font-medium">
                   Notifications · grouped by cafe
                 </div>
-                <ul className="max-h-80 divide-y overflow-y-auto">
-                  {open.map((i) => (
-                    <li key={i.id} className="space-y-1 px-3 py-2.5 text-sm">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium">{i.kind}</span>
-                        <StatusBadge status={i.severity} />
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {i.cafeName} · {relTime(i.openedAt)}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
+                {incidentsLoading ? (
+                  <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                    Loading notifications…
+                  </div>
+                ) : open.length === 0 ? (
+                  <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                    No open incidents right now.
+                  </div>
+                ) : (
+                  <ul className="max-h-80 divide-y overflow-y-auto">
+                    {open.map((i) => (
+                      <li key={i.id} className="space-y-1 px-3 py-2.5 text-sm">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium">{i.kind}</span>
+                          <StatusBadge status={i.severity} />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {i.cafeName} · {relTime(i.openedAt)}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <div className="border-t px-3 py-2 text-xs text-muted-foreground">
                   Duplicate alerts within 6 hours are collapsed to avoid alert fatigue.
                 </div>
